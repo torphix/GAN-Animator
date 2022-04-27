@@ -1,0 +1,11 @@
+name: "CREMA-D"
+# Video
+video:
+  fps: 25
+  img_frames_per_audio_clip: 5
+  img_size: [128, 96]
+  max_n_video_frames: 30 # Samples more than this are skipped
+  subset_size: 10 # Number of sample frames to get
+audio:
+  frame_size: 0.2 # 5 video frames with fps of 25
+  sample_rate: 16000

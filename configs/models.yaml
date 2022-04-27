@@ -1,0 +1,62 @@
+# [(W-K + 2P) / S] + 1
+generator:
+  encoder:
+    image_encoder:
+      stride: 2
+      kernel_size: 4
+      hid_d: 32  # Starting dim, increases exponentially
+      out_d: 256
+
+    audio_encoder:
+      hid_d: 4 # Exponential increases every layer, current settings = 2^8 * hid_d
+      out_d: 256
+      sample_rate: 16000
+      audio_length: 0.2 # Seconds
+      n_layers: 4
+      feature_size_limit: 1024
+      gru:
+        input_size: 256
+        hidden_size: 256
+        num_layers: 1
+
+    noise_generator: 
+      input_size: 256
+      hidden_size: 256
+      num_layers: 1
+  
+  frame_decoder:
+    stride: 2
+    kernel_size: [8,6]
+    in_d: 768 # concatenated dimensions of audio, img & noise
+    # Should be same as image_encoder hid_d
+    hid_d: 32
+
+
+frame_discriminator:
+  feature_sizes: [32, 64, 128, 256, 512, 128]
+  kernel_size: [4, 4, 4, 4, 9, 12]
+  stride: 2
+
+video_discriminator:
+  max_n_frames: 100 #[1, C, N(22), H, W]
+  feature_sizes: [32, 64, 128, 256]
+  kernel_sizes: [4, 4, 10, 10]
+  stride: 2
+
+sync_discriminator:
+  audio_length: 3200 # Sample_rate (16000) * seconds (0.2)
+  frames_per_clip: 5
+  video_feature_sizes: [32, 64, 128, 256]
+  video_kernel_sizes: [4, 4, 4, 10]
+  video_stride: 2
+
+  audio_feature_sizes: [16, 32, 64, 128, 256]
+  audio_kernel_sizes: [250, 4, 4, 4, 10]
+  audio_stride: [50, 2, 2, 2, 5]
+
+
+# Loss discounts
+sync_loss_w: 1
+video_loss_w: 1
+frame_loss_w: 1
+recon_loss_w: 3

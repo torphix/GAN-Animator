@@ -1,0 +1,29 @@
+trainer:
+  devices: 1
+  max_epochs: 501
+  min_epochs: 501
+  auto_lr_find: True
+  # auto_scale_batch_size: "binsearch"
+  check_val_every_n_epoch: 1
+  accelerator: "gpu"
+  # Load checkpoint from here
+  gradient_clip_val: 1
+  gradient_clip_algorithm: "value"
+  accumulate_grad_batches: 4
+  # Provide one or the other
+  checkpoint_path: 
+  model_dir: # saved_models/501
+
+g_optim:
+  lr: 1.0e-4
+  betas: [0.9, 0.999]
+g_scheduler:
+  step_size: 5
+  gamma: 0.98
+  
+d_optim:
+  lr: 1.0e-5
+  betas: [0.9, 0.999]
+d_scheduler:
+  step_size: 5
+  gamma: 0.90
