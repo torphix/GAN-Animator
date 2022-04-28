@@ -12,18 +12,28 @@ trainer:
   accumulate_grad_batches: 4
   # Provide one or the other
   checkpoint_path: 
-  model_dir: # saved_models/501
+  model_dir: # saved_models/28-501
+
+val_dataloader:
+  shuffle: False
+  batch_size: 2
+  pin_memory: True
+
+train_dataloader:
+  shuffle: False
+  batch_size: 1
+  pin_memory: True
 
 g_optim:
   lr: 1.0e-4
   betas: [0.9, 0.999]
 g_scheduler:
-  step_size: 5
+  step_size: 3
   gamma: 0.98
   
 d_optim:
   lr: 1.0e-5
   betas: [0.9, 0.999]
 d_scheduler:
-  step_size: 5
+  step_size: 3
   gamma: 0.90

@@ -71,8 +71,8 @@ def shuffle_audio(audio_blocks):
     return audio_blocks
 
 # Video
-def read_video(vid_path):
-    vid_data = VideoFileClip(vid_path)
+def read_video(vid_path, fps):
+    vid_data = VideoFileClip(vid_path).set_fps(fps)
     frames = torch.stack([torch.tensor(frame) for frame in vid_data.iter_frames()])
     return frames.permute(0, 3, 1, 2).contiguous()
 
@@ -109,9 +109,9 @@ def delete_long_clips(path, max_frames):
             
 def crop_to_same(vid_frames, audio_frames):
     if vid_frames.shape[0] > audio_frames.shape[0]:
-        vid_frames[:audio_frames.shape[0],:,:,:]
+        vid_frames = vid_frames[:audio_frames.shape[0],:,:,:]
     if audio_frames.shape[0] > vid_frames.shape[0]:
-        audio_frames[:vid_frames.shape[0],:,:]
+        audio_frames = audio_frames[:vid_frames.shape[0],:,:]
     return vid_frames, audio_frames
 
 
@@ -127,4 +127,71 @@ def ensure_equal(video_path, audio_path):
         'Unequal lengths error in code!!!'
         
         
-        
+
+def pad(items):
+    '''
+    Padding function that auto-detects which dimension to pad
+    supports 1D, 2D & 3D sizes
+    '''
+    def _pad_1D(items):
+        max_val = max([item.shape[0] for item in items])
+        items = torch.stack([F.pad(item, (0, max_val-item.shape[0]), value=0)
+                             for item in items])
+        return items
+    def _pad_2D(items):
+        # Find uneven
+        dim_0 = int(sum([item.shape[0] for item in items]) / len(items))
+        dim_1 = int(sum([item.shape[1] for item in items]) / len(items))
+        if dim_0 == items[0].shape[0] and dim_1 == items[0].shape[1]:
+            return items
+        elif dim_0 != items[0].shape[0] and dim_1 != items[0].shape[1]:
+            raise ValueError(
+                f'Expecting at least one dim to be the same {dim_0, dim_1}')
+        elif dim_0 != items[0].shape[0]:
+            max_val = max([item.shape[0] for item in items])
+            items = torch.stack([F.pad(item, (0, max_val-item.shape[0]), value=0)
+                                 for item in items])
+            return items
+        elif dim_1 != items[0].shape[1]:
+            max_val = max([item.shape[0] for item in items])
+            items = torch.stack([F.pad(item, (0, max_val-item.shape[1]), value=0)
+                                 for item in items])
+            return items
+
+    def _pad_3D(items):
+        # Find uneven
+        dim_0 = int(sum([item.shape[0] for item in items]) / len(items))
+        dim_1 = int(sum([item.shape[1] for item in items]) / len(items))
+        dim_2 = int(sum([item.shape[2] for item in items]) / len(items))
+        if (dim_0 == items[0].shape[0] and
+            dim_1 == items[0].shape[1] and 
+            dim_2 == items[0].shape[2]):
+            return torch.stack(items)
+        elif (dim_0 != items[0].shape[0] and 
+              dim_1 != items[0].shape[1] and 
+              dim_2 != items[0].shape[2]):
+            raise ValueError(
+                f'Expecting at least two dims to be the same {dim_0, dim_1, dim_2}')
+        elif dim_0 != items[0].shape[0]:
+            max_val = max([item.shape[0] for item in items])
+            items = torch.stack([F.pad(item, (0, max_val-item.shape[0]), value=0)
+                                 for item in items])
+            return items
+        elif dim_1 != items[0].shape[1]:
+            max_val = max([item.shape[0] for item in items])
+            items = torch.stack([F.pad(item, (0, max_val-item.shape[1]), value=0)
+                                 for item in items])
+            return items
+        elif dim_2 != items[0].shape[2]:
+            max_val = max([item.shape[0] for item in items])
+            items = torch.stack([F.pad(item, (0, max_val-item.shape[2]), value=0)
+                                 for item in items])
+            return items
+
+                
+    if len(items[0].shape) == 1:
+        return torch.tensor(_pad_1D(items))
+    elif len(items[0].shape) == 2:
+        return torch.tensor(_pad_2D(items))
+    elif len(items[0].shape) == 3:
+        return torch.tensor(_pad_3D(items))

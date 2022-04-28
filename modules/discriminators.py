@@ -38,9 +38,11 @@ class FrameDiscriminator(nn.Module):
 
     def forward(self, x, starting_frame):
         '''
-        x: [BS, C, H, W] generated / ground truth image
-        starting_frame: [1, C, H, W] identity frame
+        param: x: [BS, C, H, W] generated video
+        param: starting_frame: [1, C, H, W] identity frame
         '''
+        starting_frame = starting_frame.expand(x.size(0), -1, -1, -1)
+        x = torch.cat((x, starting_frame), dim=1)
         for layer in self.layers:
             x = layer(x)
         return x.view(-1)
@@ -74,10 +76,12 @@ class VideoDiscriminator(nn.Module):
 
     def forward(self, x):
         '''
-        x: frames (synthetic or real): 
-        [BS (2 real/fake), C, N Frames, H, W]
+        param: x: frames (synthetic or real)
+        [N (frames), C, H, W]
         '''
+        x = x.unsqueeze(0)
         _, N, C, H, W = x.size()
+        # Conv3D takes Channels in dim 1
         x = x.permute(0, 2, 1, 3, 4).contiguous()
         x = F.pad(x, pad=(0, 0, 0, 0, int(self.max_n_frames-N), 0, 0, 0), value=0)
         x = self.prelayer(x)
@@ -113,15 +117,16 @@ class SyncDiscriminator(nn.Module):
                     nn.BatchNorm2d(config['video_feature_sizes'][i+1]),
                     nn.LeakyReLU(0.2, inplace=True)))
             
+        self.height = img_size[0] // 2
         # Only bottom half of image is used
-        self.height, width = img_size[0] // 2, img_size[1]    
+        height, width = img_size[0] // 2, img_size[1]    
         for i in range(len(config['video_feature_sizes'])):
             # output_size = [(W-K + 2P) / S] + 1
-            self.height = int((self.height-config['video_kernel_sizes'][i] + 2*0) / config['video_stride']) + 1
+            height = int((height-config['video_kernel_sizes'][i] + 2*0) / config['video_stride']) + 1
             width = int((width-config['video_kernel_sizes'][i] + 2*0) / config['video_stride']) + 1
-        linear_input = int(self.height*width*config['video_feature_sizes'][-1])
+        linear_input = int(height*width*config['video_feature_sizes'][-1])
         # TODO: Fix hardcoded input values
-        self.video_linear = nn.Linear(6144, 256)
+        self.video_linear = nn.Linear(2048, 256)
         
         # Audio encoder
         width = config['audio_length'] 
@@ -168,10 +173,11 @@ class SyncDiscriminator(nn.Module):
         '''
         Recieves chunks of aligned frams and video
         or misaligned chunks and deterines if aligned or not
-        Frames: [Num_Chunks, ChunkLen(5), C, H//2, W]  
+        Frames: [Num_Chunks, ChunkLen(5), C, H, W]  
         Audio: [Chunks, L (0.2s) * Features, 1]
         Output: [Chunk, 1] Prediction for each frame
         '''
+        frames = frames[:, :, :, frames.size(-2)//2:, :]
         assert self.height == frames.size(3), \
             f'Frame height should be {self.height} only half the image is required'
         # 3d conv input: [N, C, T, H, W]
@@ -181,9 +187,9 @@ class SyncDiscriminator(nn.Module):
             if i == 0: frames = frames.squeeze(2)
         frames = frames.view(frames.size(0), -1)
         frame_emb = self.video_linear(frames)
+        
         # Audio
         audio = audio.squeeze(0).float()
-        
         for i, layer in enumerate(self.audio_encoder_layers):
             audio = layer(audio)
         audio = audio.view(audio.size(0), -1)
@@ -198,6 +204,7 @@ class SyncDiscriminator(nn.Module):
     
 class DiscriminatorsModule(nn.Module):
     def __init__(self, model_config, data_config):
+        super().__init__()
         '''Input tensors Outputs Loss for each discriminator'''
         self.data_config = data_config
 
@@ -230,6 +237,7 @@ class DiscriminatorsModule(nn.Module):
         video_disc_output = self.video_disc(fake_video_all)
         frame_disc_output = self.frame_disc(fake_video_subset, id_frame)
         sync_disc_output = self.sync_disc(fake_video_blocks, audio_chunks)
+        
         unsync_disc_output = self.sync_disc(real_video_blocks,
                                             shuffle_audio(audio_chunks))
         return OrderedDict({

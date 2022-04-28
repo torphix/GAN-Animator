@@ -30,8 +30,11 @@ def is_power2(num):
 
 
 def get_configs():
-    models_config = open(yaml.load('configs/models.yaml', yaml.FullLoader))
-    data_config = open(yaml.load('configs/data.yaml', yaml.FullLoader))
-    trainer_config = open(yaml.load('configs/trainer.yaml', yaml.FullLoader))
-    return models_config, data_config, trainer_config
+    with open('configs/models.yaml','r') as f:
+        models_config = yaml.load(f.read(), yaml.FullLoader)
+    with open('configs/data.yaml','r') as f:
+        data_config = yaml.load(f.read(), yaml.FullLoader)
+    with open('configs/train.yaml','r') as f:
+        train_config = yaml.load(f.read(), yaml.FullLoader)
+    return models_config, data_config, train_config
     

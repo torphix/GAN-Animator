@@ -118,9 +118,12 @@ class Encoder(nn.Module):
         return self.param.device
         
     def forward(self, img, audio):
-        audio = audio
-        BS, L , N = audio.size()
-        noise = torch.FloatTensor(BS, 1, 256).normal_(0, 0.33).to(self.device)
+        '''
+        param: img: [3, H, W] identity frame
+        param: audio: [N (frames), 1, L]
+        '''
+        N = audio.shape[0]
+        noise = torch.FloatTensor(N, 1, 256).normal_(0, 0.33).to(self.device)
         img = img.expand(audio.size(0), 
                          *img.shape[1:])
         noise_z, h_0 = self.noise_encoder(noise)
@@ -130,7 +133,6 @@ class Encoder(nn.Module):
                          audio_z,
                          noise_z.squeeze(1)),
                          dim=-1)
-
         return out, img_zs
 
 

@@ -25,8 +25,3 @@ Create the dataset by running: `python main.py process_dataset` once this is don
 
 ## Train
 Run: `python main.py train` to begin training
-
-
-
-
-

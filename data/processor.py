@@ -39,14 +39,6 @@ class DataProcessor:
         self.video_dir = f'{self.dataset_path}/VideoFlash'
         self.files = [file.split(".")[0] for file in os.listdir(self.audio_dir)]
         
-        self.img_transform = transforms.Compose([
-            transforms.Resize((self.data_config['video']['img_size'][0], 
-                               self.data_config['video']['img_size'][1])),
-            transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5))])
-
-        os.makedirs(f'{self.dataset_path}/processed/real_video_all', exist_ok=True)
-        os.makedirs(f'{self.dataset_path}/processed/real_video_subset', exist_ok=True)
-        os.makedirs(f'{self.dataset_path}/processed/real_video_blocks', exist_ok=True)
         os.makedirs(f'{self.dataset_path}/processed/audio_chunks', exist_ok=True)
         os.makedirs(f'{self.dataset_path}/processed/audio_generator_input', exist_ok=True)
 
@@ -57,28 +49,23 @@ class DataProcessor:
                                      sr=self.data_config['audio']['sample_rate'])
             # Normalise data
             audio = audio / np.max(audio) 
-            video = read_video(f'{self.video_dir}/{file}.mp4') / 255
-            video = self.img_transform(video)
-            
             cutting_stride = int(self.data_config['audio']['sample_rate'] / 
                                 self.data_config['video']['fps'])
             audio_frame_feat_len = int(self.data_config['audio']['sample_rate'] * 
                                     self.data_config['audio']['frame_size'])
             audio_padding = audio_frame_feat_len - cutting_stride
-            # Cut audio 1 clip per frame
+            # Cut audio 1 clip per frame 0.2s padded on each side
             audio_generator_input = process_audio_for_generator(
                 torch.tensor(audio).view(-1, 1),
                 cutting_stride,
                 audio_padding,
                 audio_frame_feat_len)
-            video, audio_generator_input = crop_to_same(video, audio_generator_input)
             # Split audio into 0.2s chunks for sync_discriminator
             audio_chunks = split_audio(
                 torch.tensor(audio).view(-1, 1),
                 self.data_config['audio']['sample_rate'], 
-                self.data_config['audio']['sample_rate'])
+                self.data_config['audio']['frame_size'])
 
-            torch.save(video, f'{self.dataset_path}/processed/real_video_all/{file}.pt')
             torch.save(audio_chunks, f'{self.dataset_path}/processed/audio_chunks/{file}.pt')
             torch.save(audio_generator_input, f'{self.dataset_path}/processed/audio_generator_input/{file}.pt')
             

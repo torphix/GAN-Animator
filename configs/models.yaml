@@ -38,7 +38,7 @@ frame_discriminator:
   stride: 2
 
 video_discriminator:
-  max_n_frames: 100 #[1, C, N(22), H, W]
+  max_n_frames: 100 # pads all inputs to this size
   feature_sizes: [32, 64, 128, 256]
   kernel_sizes: [4, 4, 10, 10]
   stride: 2

@@ -1,11 +1,10 @@
 import sys
 import yaml
 import argparse
-import subprocess
-from data.face_alignment.face_alignment import Aligner
+from apis.train import train
 from data.processor import DataProcessor
+from data.face_alignment.face_alignment import Aligner
 
-from train import train
 
 
 def update_config_with_args(config_path, args):
