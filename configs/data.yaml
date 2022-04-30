@@ -9,3 +9,6 @@ video:
 audio:
   frame_size: 0.2 # 5 video frames with fps of 25
   sample_rate: 16000
+
+use_emotion: True
+emotions: {'NEU': 1, 'ANG': 2, 'DIS': 3, 'FEA': 4, 'SAD': 5, 'HAP': 6}

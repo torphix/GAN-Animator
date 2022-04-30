@@ -1,6 +1,8 @@
+import os
 import sys
 import yaml
 import argparse
+import subprocess
 from apis.train import train
 from data.processor import DataProcessor
 from data.face_alignment.face_alignment import Aligner
@@ -24,7 +26,19 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Dataset Commands
-    if command == 'align_dataset':
+    if command == 'create_dataset':
+        parser.add_argument('-ds', '--dataset_name',
+                            help='''
+                            Recusivly finds all videos in directory,
+                            looks in datasets if nothing passed''')
+        args, leftover_args = parser.parse_known_args()
+        if args.dataset_name == 'CREMA-D':
+            os.chdir('data/datasets')
+            os.system('git clone  https://github.com/CheyneyComputerScience/CREMA-D.git')
+        else:
+            print('Only datasets CREMA-D currently supported')
+        
+    elif command == 'align_dataset':
         '''
         Searchs through directory passed or for videos in 
         datasets directory, aligning any videos it finds

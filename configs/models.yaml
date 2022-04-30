@@ -23,6 +23,10 @@ generator:
       input_size: 256
       hidden_size: 256
       num_layers: 1
+    
+    emotion_enc:
+      n_emos: 5
+      hid_d: 256
   
   frame_decoder:
     stride: 2
@@ -30,6 +34,7 @@ generator:
     in_d: 768 # concatenated dimensions of audio, img & noise
     # Should be same as image_encoder hid_d
     hid_d: 32
+
 
 
 frame_discriminator:

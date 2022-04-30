@@ -110,14 +110,21 @@ class Encoder(nn.Module):
         self.image_encoder = ImageEncoder(config['image_encoder'], img_size)
         self.audio_encoder = AudioEncoder(config['audio_encoder'])
         self.noise_encoder = nn.GRU(**config['noise_generator'])
-        
+        self.emotion_encoder = nn.Sequential(
+                  nn.Embedding(config['emotion_enc']['n_emos'],
+                               config['emotion_enc']['hid_d'],
+                               padding_idx=0),
+                  nn.Linear(config['emotion_enc']['hid_d'],
+                            config['emotion_enc']['hid_d']),
+                  nn.ReLU())
+
         self.param = nn.Parameter(torch.empty(0))
         
     @property    
     def device(self):
         return self.param.device
         
-    def forward(self, img, audio):
+    def forward(self, img, audio, emotion=None):
         '''
         param: img: [3, H, W] identity frame
         param: audio: [N (frames), 1, L]
@@ -129,10 +136,19 @@ class Encoder(nn.Module):
         noise_z, h_0 = self.noise_encoder(noise)
         audio_z = self.audio_encoder(audio)
         img_zs = self.image_encoder(img)
-        out = torch.cat((img_zs[-1],
-                         audio_z,
-                         noise_z.squeeze(1)),
-                         dim=-1)
+        if emotion is not None:
+            emotion_emb = self.emotion_encoder(emotion)
+            out = torch.cat((img_zs[-1],
+                             audio_z,
+                             noise_z.squeeze(1)),
+                             emotion_emb,
+                             dim=-1)
+        else: 
+            out = torch.cat((img_zs[-1],
+                            audio_z,
+                            noise_z.squeeze(1)),
+                            dim=-1)
+
         return out, img_zs
 
 

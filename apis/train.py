@@ -43,63 +43,66 @@ class TrainModule(ptl.LightningModule):
     def training_step(self, batch, batch_idx, optimizer_idx):
         logger = self.logger.experiment
         fake_video_all = self.generator(batch['id_frame'], batch['audio_generator_input'])
-        # Train Discriminator
-        if optimizer_idx == 0:    
-            fake_out = self.discriminators.fake_inference(
-                                fake_video_all, 
-                                batch['real_video_all'],
-                                batch['id_frame'],
-                                batch['audio_chunks'])
-            real_out = self.discriminators.real_inference(
-                                batch['real_video_all'],
-                                batch['audio_chunks'],
-                                batch['id_frame'])
-            real_loss, fake_loss = self.loss.discriminator_loss(fake_out, real_out)
-            disc_loss = real_loss + fake_loss
-            
-            tqdm_dict = {"disc_loss": disc_loss}
-            output = OrderedDict({"loss": disc_loss,
-                                  "progress_bar": tqdm_dict,
-                                  "log": tqdm_dict})
-            
-            if batch_idx % 100 == 0:
-                scalers = {
-                    'Discriminator Real Loss': real_loss,
-                    'Discriminator Fake Loss': fake_loss,
-                    'Discriminator Total Loss': disc_loss,
-                }
-                self.log_values(logger, fake_video_all, scalers)
-            
-            return disc_loss
-            
-        # Train Generator
-        elif optimizer_idx == 1:
-            fake_out = self.discriminators.fake_inference(
-                                fake_video_all,
-                                batch['real_video_all'],
-                                batch['id_frame'],
-                                batch['audio_chunks'])
-            gen_loss, recon_loss = self.loss.generator_loss(
-                                        batch['real_video_all'],
-                                        fake_video_all,
-                                        fake_out)
-            total_loss = gen_loss + recon_loss
-            
-            tqdm_dict = {"gen_loss": total_loss}
-            output = OrderedDict({"loss": total_loss, 
-                                  "progress_bar": tqdm_dict,
-                                  "log": tqdm_dict})
-            
-            if batch_idx % 100 == 0:
-                scalers = {
-                    'Generator Loss': gen_loss,
-                    'Reconstruction Loss': recon_loss,
-                    'Total Generator Loss': total_loss,
-                }
-                self.log_values(logger, fake_video_all, scalers)
-            
-            return output
-        
+        try:
+            # Train Discriminator
+            if optimizer_idx == 0:    
+                fake_out = self.discriminators.fake_inference(
+                                    fake_video_all, 
+                                    batch['real_video_all'],
+                                    batch['id_frame'],
+                                    batch['audio_chunks'])
+                real_out = self.discriminators.real_inference(
+                                    batch['real_video_all'],
+                                    batch['audio_chunks'],
+                                    batch['id_frame'])
+                real_loss, fake_loss = self.loss.discriminator_loss(fake_out, real_out)
+                disc_loss = real_loss + fake_loss
+                
+                tqdm_dict = {"disc_loss": disc_loss}
+                output = OrderedDict({"loss": disc_loss,
+                                    "progress_bar": tqdm_dict,
+                                    "log": tqdm_dict})
+                
+                if batch_idx % 100 == 0:
+                    scalers = {
+                        'Discriminator Real Loss': real_loss,
+                        'Discriminator Fake Loss': fake_loss,
+                        'Discriminator Total Loss': disc_loss,
+                    }
+                    self.log_values(logger, fake_video_all, scalers)
+                
+                return disc_loss
+                
+            # Train Generator
+            elif optimizer_idx == 1:
+                fake_out = self.discriminators.fake_inference(
+                                    fake_video_all,
+                                    batch['real_video_all'],
+                                    batch['id_frame'],
+                                    batch['audio_chunks'])
+                gen_loss, recon_loss = self.loss.generator_loss(
+                                            batch['real_video_all'],
+                                            fake_video_all,
+                                            fake_out)
+                total_loss = gen_loss + recon_loss
+                
+                tqdm_dict = {"gen_loss": total_loss}
+                output = OrderedDict({"loss": total_loss, 
+                                    "progress_bar": tqdm_dict,
+                                    "log": tqdm_dict})
+                
+                if batch_idx % 100 == 0:
+                    scalers = {
+                        'Generator Loss': gen_loss,
+                        'Reconstruction Loss': recon_loss,
+                        'Total Generator Loss': total_loss,
+                    }
+                    self.log_values(logger, fake_video_all, scalers)
+                
+                return output
+        except:
+            print(batch['file_id'])    
+                    
     def configure_optimizers(self):
         opt_d = torch.optim.Adam(self.discriminators.parameters(), 
                                  **self.train_config['d_optim'])
@@ -132,3 +135,4 @@ def train():
     trainer = Trainer(**trainer_config, 
                       logger=tb_logger)
     trainer.fit(module, ckpt_path=ckpt_path)
+    torch.save(module.generator.state_dict(), f'saved_models/{trainer_config["trainer"]["max_epochs"]}/gen.pth')

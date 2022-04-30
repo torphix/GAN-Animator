@@ -1,3 +1,4 @@
+from multiprocessing.sharedctypes import Value
 import os
 import torch
 from .utils import (pad, read_video,
@@ -25,6 +26,9 @@ class GANDataset(Dataset):
                                config['video']['img_size'][1])),
             transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5))])
         
+        self.use_emotion = config['use_emotion']
+        self.emotions = config['emotions']
+        
     def __len__(self):
         return len(self.files)
     
@@ -38,7 +42,16 @@ class GANDataset(Dataset):
         video = self.img_transform(video)
         video, audio_generator_input = crop_to_same(video, audio_generator_input)
         
+        if self.use_emotion:
+            try:
+                emotion = self.emotions[self.files[idx].split("_")[2]]
+            except: raise ValueError('Emotion prefix not in filename')
+            
+        else: emotion = None
+        
         datapoint = {
+            'file_id':self.files[idx],
+            'emotion':emotion,
             # Discriminator inputs
             'real_video_all': video,
             'audio_chunks': audio_chunks,
@@ -50,16 +63,19 @@ class GANDataset(Dataset):
 
 
     def collate_fn(self, batch):
+        file_id = []
         real_video_all = []
         audio_chunks = []
         id_frames = []
         audio_generator_input = []
         for d in batch:
+            file_id.append(d['file_id'])
             real_video_all.append(d['real_video_all'])
             audio_chunks.append(d['audio_chunks'])
             id_frames.append(d['id_frame'])
             audio_generator_input.append(d['audio_generator_input'])
         batch = {
+            'file_id':file_id,
             'real_video_all':torch.stack(real_video_all).squeeze(0),
             'audio_chunks':torch.stack(audio_chunks),
             'id_frame':torch.stack(id_frames),

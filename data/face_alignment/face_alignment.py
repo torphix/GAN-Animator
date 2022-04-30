@@ -39,7 +39,7 @@ class Aligner:
         self.data_config = yaml.load(open(f'{self.root}/configs/data.yaml'),
                                   Loader=yaml.FullLoader)
         self.videos = []
-        self.img_size = self.data_config['img_size']
+        self.img_size = self.data_config['video']['img_size']
         self.face_anchor_points = [33, 36, 39, 42, 45]
         self.mean_face = np.load(f'{self.root}/data/face_alignment/crema_mean_face.npy')
         
