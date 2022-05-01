@@ -11,7 +11,7 @@ trainer:
   gradient_clip_algorithm: "value"
   accumulate_grad_batches: 4
   # Provide one or the other
-  checkpoint_path: 
+  checkpoint_path: tb_logs/lightning_logs/version_7/checkpoints/epoch=16-step=63206.ckpt
   model_dir: # saved_models/28-501
 
 val_dataloader:

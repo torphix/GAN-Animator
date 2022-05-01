@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchvision.utils import save_image
 
 
 class Loss(nn.Module):
@@ -72,12 +73,16 @@ class Loss(nn.Module):
         ), dim=0).to(self.device)
         
         g_loss = F.binary_cross_entropy(predictions, targets)
-        
-        # Reconstruction loss
+        # Reconstruction Loss
         half_size = fake_video_all.size(2) // 2
-        fake_video_all = fake_video_all[:,:,half_size:,:]
-        real_video_all = real_video_all[:,:,half_size:,:]
-        recon_loss = F.l1_loss(fake_video_all, real_video_all)
+        fake_video_bottom = fake_video_all[:,:,half_size:,:]
+        real_video_bottom = real_video_all[:,:,half_size:,:]
+        bottom_loss = F.l1_loss(fake_video_bottom, real_video_bottom)
+
+        fake_video_top = fake_video_all[:,:,:half_size,:]
+        real_video_top = real_video_all[:,:,:half_size,:]
+        top_loss = F.l1_loss(fake_video_top, real_video_top) * 0.25
+        
+        recon_loss = top_loss + bottom_loss
         recon_loss *= self.recon_loss_w
         return g_loss, recon_loss
-    
