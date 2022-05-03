@@ -50,47 +50,90 @@ class FrameDiscriminator(nn.Module):
 
 class VideoDiscriminator(nn.Module):
     '''To get high quality fluid video generation'''
-    def __init__(self, config, img_size):
+    def __init__(self, config, img_size, audio_chunk_len):
         super().__init__() 
         
-        self.max_n_frames = config['max_n_frames']
-        self.layers = nn.ModuleList()
-        self.prelayer = nn.Sequential(
-                            nn.Conv3d(3, config['feature_sizes'][0],
-                                     kernel_size=(config['max_n_frames'], 10, 10)),
-                            nn.BatchNorm3d(config['feature_sizes'][0]),
-                            nn.LeakyReLU(0.2, True))
+        img_config = config['img_encoder']
+        self.img_encoder = nn.ModuleList()
+        self.img_rnn = nn.RNN(**img_config['rnn'])
+        kernels = list(zip(
+            self._calculate_kernels(img_size[0], 
+                                    len(img_config['feature_sizes']),
+                                    img_config['stride']),
+            self._calculate_kernels(img_size[1],
+                                    len(img_config['feature_sizes']), 
+                                    img_config['stride'])))
+        for i in range(len(img_config['feature_sizes'])):
+            self.img_encoder.append(
+                nn.Sequential(
+                    nn.Conv2d(img_config['feature_sizes'][i],
+                              img_config['feature_sizes'][i+1]
+                              if i != len(img_config['feature_sizes'])-1 
+                              else img_config['feature_sizes'][i],
+                              kernel_size=(img_config['kernels'][i][0], 
+                                           img_config['kernels'][i][1]),
+                              stride=img_config['stride']),
+                    nn.BatchNorm2d(
+                              img_config['feature_sizes'][i+1]
+                              if i != len(img_config['feature_sizes'])-1
+                              else img_config['feature_sizes'][i]),
+                    nn.LeakyReLU()))
         
-        for i in range(len(config['feature_sizes'])-1):
-            self.layers.append(nn.Sequential(
-                                nn.Conv2d(config['feature_sizes'][i],
-                                          config['feature_sizes'][i+1],
-                                          config['kernel_sizes'][i],
-                                          stride=config['stride']),
-                                nn.BatchNorm2d(config['feature_sizes'][i+1]),
-                                nn.LeakyReLU(0.2, True)))
         
-        self.linear = nn.Sequential(
-                            nn.Linear(15360, 1),
-                            nn.Sigmoid())
-
-    def forward(self, x):
+        audio_config = config['audio_encoder']
+        self.audio_encoder = nn.ModuleList()
+        self.audio_rnn = nn.RNN(**audio_config['rnn'])
+        for i in range(len(audio_config['feature_sizes'])):
+            self.audio_encoder.append(
+                nn.Sequential(
+                    nn.Conv1d(audio_config['feature_sizes'][i],
+                              audio_config['feature_sizes'][i+1]
+                              if i != len(audio_config['feature_sizes'])-1 
+                              else audio_config['feature_sizes'][i],
+                              kernel_size=int(audio_config['kernels'][i]),
+                              stride=audio_config['stride']),
+                    nn.BatchNorm1d(
+                              audio_config['feature_sizes'][i+1]
+                              if i != len(audio_config['feature_sizes'])-1
+                              else audio_config['feature_sizes'][i]),
+                    nn.LeakyReLU()))
+        
+        self.linear_classifier = nn.Sequential(
+                        nn.Linear(512, 1),
+                        nn.Sigmoid())
+        
+    def _calculate_kernels(self, input_d, n_layers, stride):
+        k_sizes = []
+        scalar = int(input_d / n_layers)
+        for i in range(n_layers):
+            if i != n_layers-1:
+                target_d = input_d - scalar
+                k_sizes.append(int(abs(((target_d - 1) / stride) - input_d)))
+                input_d = target_d
+            else: # Final layer
+                k_sizes.append(input_d)
+        return k_sizes
+            
+    def forward(self, frames, audio):
         '''
-        param: x: frames (synthetic or real)
-        [N (frames), C, H, W]
+        param: video: frames (synthetic or real)
+        [N (frames), C, H, W] -> [N (frames), 256] -> RNN -> Prediction
+        param: audio: audio (real)
+        Audio: [N (frames), L (0.2s*16000=3200), 1] -> [N (frames), 256] -> RNN -> Prediction
         '''
-        x = x.unsqueeze(0)
-        _, N, C, H, W = x.size()
-        # Conv3D takes Channels in dim 1
-        x = x.permute(0, 2, 1, 3, 4).contiguous()
-        x = F.pad(x, pad=(0, 0, 0, 0, int(self.max_n_frames-N), 0, 0, 0), value=0)
-        x = self.prelayer(x)
-        x = x.squeeze(2)
-        for layer in self.layers:
-            x = layer(x)
-        x = torch.flatten(x)
-        x = self.linear(x)  
-        return x
+        for layer in self.img_encoder:
+            frames = layer(frames)
+        frames_z, _ = self.img_rnn(frames.squeeze(-1).squeeze(-1))
+        
+        audio = audio.squeeze(0)
+        for layer in self.audio_encoder:
+            audio = layer(audio)
+        audio_z, _ = self.audio_rnn(audio.squeeze(-1))
+        print(audio_z.shape, frames_z.shape)
+        z = torch.cat((frames_z, audio_z), dim=-1)
+        print(z.shape)
+        out = self.linear_classifier(z)
+        return out
   
   
 class SyncDiscriminator(nn.Module):
@@ -210,7 +253,8 @@ class DiscriminatorsModule(nn.Module):
 
         self.video_disc = VideoDiscriminator(
             model_config['video_discriminator'],
-            data_config['video']['img_size'])
+            data_config['video']['img_size'],
+            data_config['audio']['frame_size'] * data_config['audio']['sample_rate'])
         self.sync_disc = SyncDiscriminator(
             model_config['sync_discriminator'],
             data_config['video']['img_size'])
@@ -221,7 +265,8 @@ class DiscriminatorsModule(nn.Module):
                        fake_video_all, 
                        real_video_all,
                        id_frame,
-                       audio_chunks):
+                       audio_chunks,
+                       audio_generator_input,):
         '''When inputs are generated'''
         # Process generator output
         fake_video_subset = sample_frames(
@@ -234,7 +279,7 @@ class DiscriminatorsModule(nn.Module):
             real_video_all,
             self.data_config['video']['img_frames_per_audio_clip'])
         # Inference
-        video_disc_output = self.video_disc(fake_video_all)
+        video_disc_output = self.video_disc(fake_video_all, audio_generator_input)
         frame_disc_output = self.frame_disc(fake_video_subset, id_frame)
         sync_disc_output = self.sync_disc(fake_video_blocks, audio_chunks)
         
@@ -249,6 +294,7 @@ class DiscriminatorsModule(nn.Module):
 
     def real_inference(self,
                        real_video_all,
+                       audio_generator_input,
                        audio_chunks,
                        id_frame):
         '''When inputs are real'''        
@@ -260,7 +306,7 @@ class DiscriminatorsModule(nn.Module):
             real_video_all,
             self.data_config['video']['img_frames_per_audio_clip'])
         # Inference
-        video_disc_output = self.video_disc(real_video_all)
+        video_disc_output = self.video_disc(real_video_all, audio_generator_input)
         frame_disc_output = self.frame_disc(real_video_subset, id_frame)
         sync_disc_output = self.sync_disc(real_video_blocks,
                                           audio_chunks)

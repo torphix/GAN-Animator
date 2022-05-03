@@ -1,7 +1,10 @@
 import math
 import torch
 import torch.nn as nn
-from .utils import calculate_output_length, calculate_padding, is_power2, prime_factors
+import torch.nn.functional as F
+from .utils import (calculate_output_length, 
+                    calculate_padding,
+                    is_power2, prime_factors)
 
 
 class ImageEncoder(nn.Module):
@@ -134,6 +137,7 @@ class Encoder(nn.Module):
         img = img.expand(audio.size(0), 
                          *img.shape[1:])
         noise_z, h_0 = self.noise_encoder(noise)
+        noise_z = F.tanh(noise_z)
         audio_z = self.audio_encoder(audio)
         img_zs = self.image_encoder(img)
         if emotion is not None:

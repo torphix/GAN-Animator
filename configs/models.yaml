@@ -43,10 +43,26 @@ frame_discriminator:
   stride: 2
 
 video_discriminator:
-  max_n_frames: 100 # pads all inputs to this size
-  feature_sizes: [32, 64, 128, 256]
-  kernel_sizes: [4, 4, 10, 10]
-  stride: 2
+  img_encoder:
+    feature_sizes: [3, 32, 64, 128, 128]
+    kernels: [[8, 8], [5,5], [5,5], [3,3], [6,4]]
+    stride: 2
+    rnn:
+      input_size: 128
+      hidden_size: 256
+      num_layers: 1
+      batch_first: True
+
+  audio_encoder:
+    feature_sizes: [1, 32, 64, 64, 128, 128]
+    kernels: [10, 10, 5, 5, 3, 97]
+    stride: 2
+    rnn:
+      input_size: 128
+      hidden_size: 256
+      num_layers: 1
+      batch_first: True
+
 
 sync_discriminator:
   audio_length: 3200 # Sample_rate (16000) * seconds (0.2)

@@ -21,18 +21,22 @@ class TrainModule(ptl.LightningModule):
         self.discriminators = DiscriminatorsModule(model_config, data_config)
         self.generator = Generator(model_config['generator'], data_config['video']['img_size'])
         self.loss = Loss(model_config)
+        self.log_n_steps = train_config['log_n_steps']
         
-    def log_values(self, logger, images, scalers):
+    def log_values(self, logger, fake_images, real_images, scalers):
         # Save subset of images
-        for i in range(images.shape[0]):
+        for i in range(fake_images.shape[0]):
             if i % 5 == 0: logger.add_image(
-                'Fake images', images[i])
+                'Fake images', fake_images[i])
         # Save scalers
         for k, v in scalers.items():
             logger.add_scalar(k, v) 
-            print(f'Loss: {k} -> {v}')           
-            
-        save_image(images, 'output.png')
+            print(f'Loss: {k} -> {v}')   
+        print(f'Learning Rate (Discriminator): {self.lr_schedulers()[0].get_lr()}')    
+        print(f'Learning Rate (Generator): {self.lr_schedulers()[1].get_lr()}')    
+        
+        save_image(fake_images, 'generated.png')
+        save_image(real_images, 'real.png')
             
 
     def train_dataloader(self):
@@ -50,9 +54,11 @@ class TrainModule(ptl.LightningModule):
                                 fake_video_all, 
                                 batch['real_video_all'],
                                 batch['id_frame'],
-                                batch['audio_chunks'])
+                                batch['audio_chunks'],
+                                batch['audio_generator_input'])
             real_out = self.discriminators.real_inference(
                                 batch['real_video_all'],
+                                batch['audio_generator_input'],
                                 batch['audio_chunks'],
                                 batch['id_frame'])
             real_loss, fake_loss = self.loss.discriminator_loss(fake_out, real_out)
@@ -69,17 +75,19 @@ class TrainModule(ptl.LightningModule):
                     'Discriminator Fake Loss': fake_loss,
                     'Discriminator Total Loss': disc_loss,
                 }
-                self.log_values(logger, fake_video_all, scalers)
+                self.log_values(logger, fake_video_all, batch['real_video_all'], scalers)
             
             return disc_loss
             
         # Train Generator
         if optimizer_idx == 1:
+            print(torch.max(batch['real_video_all']))
             fake_out = self.discriminators.fake_inference(
-                                fake_video_all,
+                                fake_video_all, 
                                 batch['real_video_all'],
                                 batch['id_frame'],
-                                batch['audio_chunks'])
+                                batch['audio_chunks'],
+                                batch['audio_generator_input'])
             gen_loss, recon_loss = self.loss.generator_loss(
                                         batch['real_video_all'],
                                         fake_video_all,
@@ -91,13 +99,13 @@ class TrainModule(ptl.LightningModule):
                                 "progress_bar": tqdm_dict,
                                 "log": tqdm_dict})
             
-            if batch_idx % 100 == 0:
+            if batch_idx % self.log_n_steps == 0:
                 scalers = {
                     'Generator Loss': gen_loss,
                     'Reconstruction Loss': recon_loss,
                     'Total Generator Loss': total_loss,
                 }
-                self.log_values(logger, fake_video_all, scalers)
+                self.log_values(logger, fake_video_all, batch['real_video_all'], scalers)
             
             return output
                     

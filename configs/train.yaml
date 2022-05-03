@@ -1,3 +1,5 @@
+log_n_steps: 25
+
 trainer:
   devices: 1
   max_epochs: 501
@@ -11,7 +13,7 @@ trainer:
   gradient_clip_algorithm: "value"
   accumulate_grad_batches: 4
   # Provide one or the other
-  checkpoint_path: tb_logs/lightning_logs/version_7/checkpoints/epoch=16-step=63206.ckpt
+  checkpoint_path: # tb_logs/lightning_logs/version_8/checkpoints/epoch=86-step=1218.ckpt
   model_dir: # saved_models/28-501
 
 val_dataloader:
@@ -28,12 +30,12 @@ g_optim:
   lr: 1.0e-4
   betas: [0.9, 0.999]
 g_scheduler:
-  step_size: 3
+  step_size: 5
   gamma: 0.98
   
 d_optim:
   lr: 1.0e-5
   betas: [0.9, 0.999]
 d_scheduler:
-  step_size: 3
-  gamma: 0.90
+  step_size: 5
+  gamma: 0.98

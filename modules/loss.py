@@ -31,9 +31,9 @@ class Loss(nn.Module):
             torch.ones((real_outputs['sync_disc_output'].size(0), 1)),
         ), dim=0).to(self.device)
         real_predictions = torch.cat((
-            real_outputs['video_disc_output'].unsqueeze(1),
+            real_outputs['video_disc_output'],
             real_outputs['frame_disc_output'].unsqueeze(1),
-            real_outputs['sync_disc_output'] ,
+            real_outputs['sync_disc_output'],
         ), dim=0).to(self.device)
         fake_targets = torch.cat((
             torch.zeros((fake_outputs['video_disc_output'].size(0), 1)),
@@ -42,14 +42,14 @@ class Loss(nn.Module):
             torch.zeros((fake_outputs['unsync_disc_output'].size(0), 1)),
         ), dim=0).to(self.device)
         fake_predictions = torch.cat((
-            fake_outputs['video_disc_output'].unsqueeze(1),
+            fake_outputs['video_disc_output'],
             fake_outputs['frame_disc_output'].unsqueeze(1),
             fake_outputs['sync_disc_output'],
             fake_outputs['unsync_disc_output'],
         ), dim=0).to(self.device)
         
-        real_loss = F.binary_cross_entropy(real_predictions, real_targets)
-        fake_loss = F.binary_cross_entropy(fake_predictions, fake_targets)
+        real_loss = F.binary_cross_entropy(real_predictions, real_targets).mean()
+        fake_loss = F.binary_cross_entropy(fake_predictions, fake_targets).mean()
         return real_loss, fake_loss
     
     def generator_loss(self,  
@@ -67,22 +67,22 @@ class Loss(nn.Module):
         ), dim=0).to(self.device)
         
         predictions = torch.cat((
-            fake_outputs['video_disc_output'].unsqueeze(1),
+            fake_outputs['video_disc_output'],
             fake_outputs['frame_disc_output'].unsqueeze(1),
             fake_outputs['sync_disc_output'],
         ), dim=0).to(self.device)
         
-        g_loss = F.binary_cross_entropy(predictions, targets)
+        g_loss = F.binary_cross_entropy(predictions, targets).mean()
         # Reconstruction Loss
         half_size = fake_video_all.size(2) // 2
         fake_video_bottom = fake_video_all[:,:,half_size:,:]
         real_video_bottom = real_video_all[:,:,half_size:,:]
-        bottom_loss = F.l1_loss(fake_video_bottom, real_video_bottom)
+        recon_loss = F.l1_loss(fake_video_bottom, real_video_bottom)
 
-        fake_video_top = fake_video_all[:,:,:half_size,:]
-        real_video_top = real_video_all[:,:,:half_size,:]
-        top_loss = F.l1_loss(fake_video_top, real_video_top) * 0.25
+        # fake_video_top = fake_video_all[:,:,:half_size,:]
+        # real_video_top = real_video_all[:,:,:half_size,:]
+        # top_loss = F.l1_loss(fake_video_top, real_video_top) * 0.2
         
-        recon_loss = top_loss + bottom_loss
+        # recon_loss = top_loss + bottom_loss
         recon_loss *= self.recon_loss_w
         return g_loss, recon_loss
