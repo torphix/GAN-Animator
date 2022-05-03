@@ -26,8 +26,4 @@ Create the dataset by running: `python main.py process_dataset` once this is don
 ## Train
 Run: `python main.py train` to begin training
 
-Currently learns to generate images along with correct mouth movements however large sections of the image are distorted my ideas as to why this is are:
-    - 1) Mode collpase between discriminators & generators
-    - 2) Longer training time
-    - 3) Seperate discriminator training to be able to use different learning rates
-    - 4) Better Learning rate scheuduling (this matters quite a lot from previous experience implementing papers)
+
