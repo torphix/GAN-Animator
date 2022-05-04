@@ -81,7 +81,6 @@ class TrainModule(ptl.LightningModule):
             
         # Train Generator
         if optimizer_idx == 1:
-            print(torch.max(batch['real_video_all']))
             fake_out = self.discriminators.fake_inference(
                                 fake_video_all, 
                                 batch['real_video_all'],

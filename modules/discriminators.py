@@ -129,9 +129,7 @@ class VideoDiscriminator(nn.Module):
         for layer in self.audio_encoder:
             audio = layer(audio)
         audio_z, _ = self.audio_rnn(audio.squeeze(-1))
-        print(audio_z.shape, frames_z.shape)
         z = torch.cat((frames_z, audio_z), dim=-1)
-        print(z.shape)
         out = self.linear_classifier(z)
         return out
   

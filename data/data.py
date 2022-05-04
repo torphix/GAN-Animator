@@ -1,6 +1,6 @@
-from multiprocessing.sharedctypes import Value
 import os
 import torch
+import random
 from .utils import (pad, read_video,
                    crop_to_same,
                    cut_video_sequence,
@@ -48,7 +48,8 @@ class GANDataset(Dataset):
             except: raise ValueError('Emotion prefix not in filename')
             
         else: emotion = None
-        
+        # id_frame = video[random.sample(range(video.shape[0]), k=1)]
+        id_frame = video[0]
         datapoint = {
             'file_id':self.files[idx],
             'emotion':emotion,
@@ -56,7 +57,7 @@ class GANDataset(Dataset):
             'real_video_all': video,
             'audio_chunks': audio_chunks,
             # Generator inputs
-            'id_frame': video[0],
+            'id_frame': id_frame,
             'audio_generator_input': audio_generator_input,
         }
         return datapoint
