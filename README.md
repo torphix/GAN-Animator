@@ -1,10 +1,14 @@
-# Speech driven animation (Work in progress)
+# Speech driven animation
+This project whilst producing realistic faces, the quality is not sufficient and is thus being depracted in favour of another approach.
+
 Based on [this](https://arxiv.org/pdf/1805.09313.pdf) paper.
 
 A generative adversarial network that learns to generate videos of a human speaking
 given an input identity frame and audio speech file
 
 Building this as wanted to learn how to train GANS and am using it as part of a larger project
+
+
 
 ## Data
 Supported -> CREMA-D, Custom
